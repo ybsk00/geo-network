@@ -1,7 +1,8 @@
 import "./globals.css";
 import type { Metadata } from "next";
 import { headers } from "next/headers";
-import { getSiteByHost } from "@/lib/sites";
+import { getSiteByHost, NETWORK_SITES } from "@/lib/sites";
+import { getFeaturedForSite } from "@/lib/featured-partners";
 
 // 네이버 서치 어드바이저 소유권 확인 코드 (호스트별)
 const NAVER_VERIFICATION: Record<string, string> = {
@@ -43,6 +44,13 @@ export async function generateMetadata(): Promise<Metadata> {
   const h = await headers();
   const host = h.get("x-geo-host") ?? h.get("host") ?? "";
   const site = getSiteByHost(host);
+  if (!site) {
+    // Unknown host fallback — 미들웨어가 차단하므로 SSG/build time만 도달.
+    return {
+      title: "Not Found",
+      robots: { index: false, follow: false },
+    };
+  }
   const naverCode = NAVER_VERIFICATION[host] ?? NAVER_VERIFICATION["geo-networks.com"];
 
   return {
@@ -64,7 +72,9 @@ export default async function RootLayout({
 }) {
   const h = await headers();
   const host = h.get("x-geo-host") ?? h.get("host") ?? "";
-  const site = getSiteByHost(host);
+  // Unknown host는 미들웨어가 404로 차단 → 여기 도달은 build time/SSG뿐.
+  // fallback 첫 사이트 테마 사용 (실 사용자 노출 없음, robots: noindex는 generateMetadata에서).
+  const site = getSiteByHost(host) ?? NETWORK_SITES[0];
   const t = site.theme;
 
   return (
@@ -123,6 +133,33 @@ export default async function RootLayout({
         {/* 푸터 */}
         <footer className="border-t mt-16" style={{ borderTopColor: `${t.primaryColor}20` }}>
           <div className="max-w-4xl mx-auto px-6 py-8">
+            {(() => {
+              const partners = getFeaturedForSite(site.id);
+              if (partners.length === 0) return null;
+              return (
+                <div className="mb-6 pb-6 border-b" style={{ borderColor: `${t.primaryColor}15` }}>
+                  <p className="text-xs font-semibold opacity-70 mb-2">
+                    {site.language === "en" ? "Editorial Partners" : "협업 의료 파트너"}
+                  </p>
+                  <ul className="text-xs opacity-60 space-y-1">
+                    {partners.map((p) => (
+                      <li key={p.id}>
+                        <a
+                          href={p.url}
+                          rel="noopener"
+                          className="hover:underline"
+                          style={{ color: t.primaryColor }}
+                        >
+                          {p.name}
+                        </a>
+                        {" — "}
+                        <span>{p.tagline}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              );
+            })()}
             <p className="text-xs opacity-50">{site.footer}</p>
             <p className="text-xs opacity-30 mt-2">
               본 사이트의 정보는 참고용이며 의료 전문가의 진단을 대체하지 않습니다.

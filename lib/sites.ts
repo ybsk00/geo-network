@@ -611,33 +611,75 @@ export const NETWORK_SITES: SiteConfig[] = [
 ];
 
 /** GEO 네트워크 루트 도메인 */
-const ROOT_DOMAIN = "geo-networks.com";
+export const ROOT_DOMAIN = "geo-networks.com";
+
+/** 등록된 사이트 id 화이트리스트 — Edge runtime 미들웨어용 (NETWORK_SITES 전체보다 가벼움) */
+export const SITE_IDS: ReadonlySet<string> = new Set(
+  NETWORK_SITES.map((s) => s.id)
+);
+
+/** Host 정규화: 포트 제거 + 소문자 */
+export function normalizeHost(rawHost: string): string {
+  return (rawHost || "").trim().toLowerCase().split(":")[0];
+}
+
+/** 루트 도메인(geo-networks.com 자체) 여부 */
+export function isRootDomain(host: string): boolean {
+  const h = normalizeHost(host);
+  return h === ROOT_DOMAIN || h === `www.${ROOT_DOMAIN}`;
+}
+
+/**
+ * 등록된 GEO 네트워크 host인지 검증.
+ * - 루트 도메인 (geo-networks.com / www.geo-networks.com)
+ * - 등록된 서브도메인 (*.geo-networks.com 중 SITE_IDS에 있는 것)
+ * - 등록된 커스텀 도메인 (NETWORK_SITES[].domain exact match)
+ *
+ * unknown wildcard subdomain (does-not-exist.geo-networks.com 등)은 false.
+ * 와일드카드 도메인이 "무한 생성 가능 저품질 호스트"로 평가되는 것을 막기 위함.
+ */
+export function isKnownGeoNetworkHost(host: string): boolean {
+  const h = normalizeHost(host);
+  if (isRootDomain(h)) return true;
+  if (h.endsWith(`.${ROOT_DOMAIN}`)) {
+    const subdomain = h.replace(`.${ROOT_DOMAIN}`, "");
+    return SITE_IDS.has(subdomain);
+  }
+  // 커스텀 도메인 또는 vercel.app 레거시
+  return NETWORK_SITES.some((s) => s.domain === h);
+}
 
 /**
  * 현재 사이트 설정을 찾습니다.
- * 우선순위: 서브도메인 추출 → 호스트명 매칭 → SITE_ID 환경변수 → 기본값
+ * 우선순위: 서브도메인 추출 → 호스트명 매칭 → SITE_ID 환경변수 → null
+ *
+ * unknown host는 명시적 null 반환 (이전: NETWORK_SITES[0] fallback).
+ * 호출부는 null 케이스에서 404 또는 notFound() 처리.
  */
-export function getSiteByHost(host: string): SiteConfig {
+export function getSiteByHost(host: string): SiteConfig | null {
+  const h = normalizeHost(host);
+
   // 1. 서브도메인 추출 (*.geo-networks.com)
-  if (host.endsWith(`.${ROOT_DOMAIN}`)) {
-    const subdomain = host.replace(`.${ROOT_DOMAIN}`, "");
+  if (h.endsWith(`.${ROOT_DOMAIN}`)) {
+    const subdomain = h.replace(`.${ROOT_DOMAIN}`, "");
     const found = NETWORK_SITES.find((s) => s.id === subdomain);
     if (found) return found;
+    // 등록 안 된 서브도메인은 fallback 금지 (unknown 차단)
+    return null;
   }
 
   // 2. 호스트명 exact match (커스텀 도메인 / 레거시 vercel.app)
-  const site = NETWORK_SITES.find((s) => s.domain === host);
+  const site = NETWORK_SITES.find((s) => s.domain === h);
   if (site) return site;
 
-  // 3. SITE_ID 환경변수 (로컬 개발용)
+  // 3. SITE_ID 환경변수 (Vercel preview / 단일 사이트 배포 호환)
   const siteId = process.env.SITE_ID;
   if (siteId) {
     const found = NETWORK_SITES.find((s) => s.id === siteId);
     if (found) return found;
   }
 
-  // 4. 기본값
-  return NETWORK_SITES[0];
+  return null;
 }
 
 /**

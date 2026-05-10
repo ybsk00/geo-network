@@ -75,8 +75,9 @@ ${items.join("\n")}
 }
 
 /** 개별 사이트용 RSS */
-async function buildSiteRss(host: string): Promise<string> {
+async function buildSiteRss(host: string): Promise<string | null> {
   const site = getSiteByHost(host);
+  if (!site) return null;
   const baseUrl = `https://${host}`;
 
   let posts: Array<{
@@ -140,6 +141,13 @@ export async function GET() {
   const xml = isRootDomain(host)
     ? await buildRootRss()
     : await buildSiteRss(host);
+
+  if (xml === null) {
+    return new Response("Not Found", {
+      status: 404,
+      headers: { "X-Robots-Tag": "noindex, nofollow" },
+    });
+  }
 
   return new Response(xml, {
     headers: {

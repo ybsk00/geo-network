@@ -1,8 +1,7 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { waitUntil } from "@vercel/functions";
-
-const ROOT_DOMAIN = "geo-networks.com";
+import { ROOT_DOMAIN, SITE_IDS, normalizeHost, isRootDomain } from "@/lib/sites";
 
 // 패턴 매칭 우선순위 — 더 구체적인 패턴을 먼저 두어 오감지 방지
 // (lumiaeo/proxy.ts와 정책 동기화)
@@ -41,11 +40,13 @@ function detectCrawler(
   return null;
 }
 
-function extractSiteId(host: string): string | null {
-  if (host.endsWith(`.${ROOT_DOMAIN}`)) {
-    return host.replace(`.${ROOT_DOMAIN}`, "");
+/** valid host 의 site_id 추출 (unknown wildcard는 null) */
+function extractValidSiteId(host: string): string | null {
+  const h = normalizeHost(host);
+  if (h.endsWith(`.${ROOT_DOMAIN}`)) {
+    const subdomain = h.replace(`.${ROOT_DOMAIN}`, "");
+    return SITE_IDS.has(subdomain) ? subdomain : null;
   }
-  // 레거시 .vercel.app — SITE_ID 환경변수가 있으면 그걸로
   return process.env.SITE_ID ?? null;
 }
 
@@ -119,14 +120,43 @@ async function recordCrawlerVisit(
 }
 
 /**
- * 미들웨어: 도메인 감지 → 사이트 ID 헤더 주입 + AI 크롤러 헤더 + 봇 방문 로깅
- * *.geo-networks.com 와일드카드 서브도메인 지원
+ * 미들웨어:
+ *  1) www → apex 301 redirect
+ *  2) unknown wildcard subdomain (예: does-not-exist.geo-networks.com) → 404 + noindex
+ *     · 와일드카드 도메인이 "무한 생성 가능 저품질 호스트"로 Google에 평가되는 것을 막음
+ *  3) valid host에 한해 사이트 ID 헤더 주입 + AI 크롤러 헤더 + 봇 방문 로깅
+ *  4) robots.txt도 미들웨어가 잡도록 matcher에서 제외 제거
  */
 export function middleware(request: NextRequest) {
-  const host = request.headers.get("host") ?? "";
+  const rawHost = request.headers.get("host") ?? "";
+  const host = normalizeHost(rawHost);
 
+  // 1) www → apex
   if (host === `www.${ROOT_DOMAIN}`) {
     return NextResponse.redirect(`https://${ROOT_DOMAIN}${request.nextUrl.pathname}`, 301);
+  }
+
+  // 2) unknown wildcard subdomain 차단
+  const isRoot = isRootDomain(host);
+  let validSiteId: string | null = null;
+  if (!isRoot) {
+    if (host.endsWith(`.${ROOT_DOMAIN}`)) {
+      const subdomain = host.replace(`.${ROOT_DOMAIN}`, "");
+      if (!SITE_IDS.has(subdomain)) {
+        return new NextResponse("Not Found", {
+          status: 404,
+          headers: {
+            "Content-Type": "text/plain; charset=utf-8",
+            "X-Robots-Tag": "noindex, nofollow",
+            "Cache-Control": "no-store",
+          },
+        });
+      }
+      validSiteId = subdomain;
+    } else {
+      // 커스텀 도메인 / vercel.app 레거시 / Vercel preview
+      validSiteId = process.env.SITE_ID ?? null;
+    }
   }
 
   const response = NextResponse.next();
@@ -142,12 +172,12 @@ export function middleware(request: NextRequest) {
     );
     response.headers.set("Cache-Control", "public, max-age=3600");
 
-    const siteId = extractSiteId(host);
-    if (siteId) {
+    // valid siteId 일 때만 봇 방문 기록 — unknown host 노이즈 차단
+    if (validSiteId) {
       const ipAddress =
         request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || null;
       waitUntil(
-        recordCrawlerVisit(siteId, crawler, request.nextUrl.pathname, ua, ipAddress)
+        recordCrawlerVisit(validSiteId, crawler, request.nextUrl.pathname, ua, ipAddress)
       );
     }
   }
@@ -155,6 +185,8 @@ export function middleware(request: NextRequest) {
   return response;
 }
 
+// robots.txt도 미들웨어 거치도록 matcher에서 제외 제거
+// (이전엔 robots\\.txt 제외였음 → unknown host의 robots.txt가 살아남던 사고)
 export const config = {
-  matcher: ["/((?!_next/static|_next/image|favicon.ico|robots\\.txt).*)"],
+  matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"],
 };

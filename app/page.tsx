@@ -1,15 +1,15 @@
 import { headers } from "next/headers";
+import { notFound } from "next/navigation";
 import Link from "next/link";
-import { getSiteByHost, NETWORK_SITES } from "@/lib/sites";
+import { getSiteByHost, isRootDomain as isRoot, NETWORK_SITES, ROOT_DOMAIN } from "@/lib/sites";
+import { ALL_PARTNERS } from "@/lib/featured-partners";
 import { getSupabase } from "@/lib/supabase";
 import type { Metadata } from "next";
-
-const ROOT_DOMAIN = "geo-networks.com";
 
 export const revalidate = 3600; // 1시간 ISR
 
 function isRootDomain(host: string): boolean {
-  return host === ROOT_DOMAIN || host === `www.${ROOT_DOMAIN}` || host === "";
+  return host === "" || isRoot(host);
 }
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -31,6 +31,12 @@ export async function generateMetadata(): Promise<Metadata> {
   }
 
   const site = getSiteByHost(host);
+  if (!site) {
+    return {
+      title: "Not Found",
+      robots: { index: false, follow: false },
+    };
+  }
   const baseUrl = `https://${host}`;
 
   return {
@@ -65,6 +71,7 @@ export default async function HomePage() {
   }
 
   const site = getSiteByHost(host);
+  if (!site) notFound();
   const baseUrl = `https://${host}`;
 
   let postList: Array<{
@@ -320,6 +327,36 @@ function PortalPage() {
           </div>
         </section>
       )}
+
+      {/* 협업 의료/비즈 파트너 — 본체 lumiaeo.com 서브도메인 4 brand */}
+      <section className="mb-12 mt-16 pt-12 border-t" style={{ borderColor: "#e2e8f0" }}>
+        <h3 className="text-sm font-semibold uppercase tracking-wider opacity-50 mb-2">
+          협업 파트너 / Editorial Partners ({ALL_PARTNERS.length})
+        </h3>
+        <p className="text-sm opacity-60 mb-6">
+          GEO Networks와 함께 콘텐츠 협업을 진행하는 의료·비즈 파트너입니다.
+        </p>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {ALL_PARTNERS.map((p) => (
+            <a
+              key={p.id}
+              href={p.url}
+              rel="noopener"
+              className="group border rounded-xl p-5 transition-all hover:shadow-lg hover:-translate-y-0.5"
+              style={{ borderColor: "#cbd5e1" }}
+            >
+              <div className="flex items-center gap-3 mb-2">
+                <div className="w-3 h-3 rounded-full" style={{ backgroundColor: "#0f172a" }} />
+                <span className="font-bold" style={{ color: "#0f172a" }}>
+                  {p.name}
+                </span>
+              </div>
+              <p className="text-sm opacity-70">{p.tagline}</p>
+              <p className="text-xs opacity-50 mt-2">{p.description}</p>
+            </a>
+          ))}
+        </div>
+      </section>
     </div>
   );
 }

@@ -54,6 +54,12 @@ ${entries
   // 서브도메인 → 기존 urlset 동작
   // ────────────────────────────────────────────────────────────
   const site = getSiteByHost(host);
+  if (!site) {
+    return new Response("Not Found", {
+      status: 404,
+      headers: { "X-Robots-Tag": "noindex, nofollow" },
+    });
+  }
   const siteId = site.id;
   const baseUrl = `https://${host}`;
 

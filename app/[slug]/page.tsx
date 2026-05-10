@@ -15,6 +15,9 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const h = await headers();
   const host = h.get("x-geo-host") ?? h.get("host") ?? "";
   const site = getSiteByHost(host);
+  if (!site) {
+    return { title: "Not Found", robots: { index: false, follow: false } };
+  }
   const baseUrl = `https://${host}`;
 
   try {
@@ -64,6 +67,7 @@ export default async function PostPage({ params }: PageProps) {
   const h = await headers();
   const host = h.get("x-geo-host") ?? h.get("host") ?? "";
   const site = getSiteByHost(host);
+  if (!site) notFound();
   const t = site.theme;
   const baseUrl = `https://${host}`;
 

@@ -55,6 +55,12 @@ export async function GET(): Promise<Response> {
   // 서브도메인 → 사이트별 정체성 + 콘텐츠 인덱스 (기존)
   // ────────────────────────────────────────────────────────────
   const site = getSiteByHost(host);
+  if (!site) {
+    return new Response("Not Found", {
+      status: 404,
+      headers: { "X-Robots-Tag": "noindex, nofollow" },
+    });
+  }
   const baseUrl = `https://${host}`;
 
   let posts: Array<{

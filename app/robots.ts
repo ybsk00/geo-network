@@ -1,9 +1,17 @@
 import type { MetadataRoute } from "next";
 import { headers } from "next/headers";
+import { isKnownGeoNetworkHost } from "@/lib/sites";
 
 export default async function robots(): Promise<MetadataRoute.Robots> {
   const h = await headers();
   const host = h.get("x-geo-host") ?? h.get("host") ?? "";
+
+  // Unknown wildcard subdomain — 미들웨어가 보통 차단하지만 build time fallback으로 disallow
+  if (host && !isKnownGeoNetworkHost(host)) {
+    return {
+      rules: [{ userAgent: "*", disallow: "/" }],
+    };
+  }
 
   return {
     rules: [
