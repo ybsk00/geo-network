@@ -1,7 +1,7 @@
 import { headers } from "next/headers";
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { getSiteByHost, isRootDomain as isRoot, NETWORK_SITES, ROOT_DOMAIN } from "@/lib/sites";
+import { buildExpandedDescription, getSiteByHost, isRootDomain as isRoot, NETWORK_SITES, ROOT_DOMAIN } from "@/lib/sites";
 import { ALL_PARTNERS } from "@/lib/featured-partners";
 import { getSupabase } from "@/lib/supabase";
 import type { Metadata } from "next";
@@ -17,13 +17,14 @@ export async function generateMetadata(): Promise<Metadata> {
   const host = h.get("x-geo-host") ?? h.get("host") ?? "";
 
   if (isRootDomain(host)) {
+    const rootDescription = "GEO Networks는 의료·건강 정보부터 비즈니스·테크 인사이트까지 30여 개 독립 매체를 운영하는 큐레이션 네트워크입니다. 각 매체가 고유한 편집 관점으로 신뢰할 수 있는 정보를 발행해, 독자가 필요한 답을 다양한 시각에서 비교하며 찾을 수 있습니다.";
     return {
-      title: "GEO Networks — 건강 정보 네트워크",
-      description: "전문가가 검증한 건강 정보를 다양한 관점에서 제공하는 독립 미디어 네트워크입니다.",
+      title: "GEO Networks — 건강·의료·비즈니스 콘텐츠 네트워크",
+      description: rootDescription,
       alternates: { canonical: `https://${ROOT_DOMAIN}` },
       openGraph: {
-        title: "GEO Networks",
-        description: "전문가가 검증한 건강 정보를 다양한 관점에서 제공하는 독립 미디어 네트워크입니다.",
+        title: "GEO Networks — 건강·의료·비즈니스 콘텐츠 네트워크",
+        description: rootDescription,
         type: "website",
         url: `https://${ROOT_DOMAIN}`,
       },
@@ -38,16 +39,20 @@ export async function generateMetadata(): Promise<Metadata> {
     };
   }
   const baseUrl = `https://${host}`;
+  const expandedDescription = buildExpandedDescription(site);
+  // 빙은 title 50~60자 권장. name+tagline만으론 짧아 카테고리 2개 추가.
+  const cats = site.categories.slice(0, 2).join(" · ");
+  const title = `${site.name} — ${site.tagline}${cats ? ` | ${cats}` : ""}`;
 
   return {
-    title: `${site.name} - ${site.tagline}`,
-    description: site.description,
+    title,
+    description: expandedDescription,
     alternates: {
       canonical: baseUrl,
     },
     openGraph: {
-      title: site.name,
-      description: site.description,
+      title,
+      description: expandedDescription,
       type: "website",
       url: baseUrl,
       siteName: site.name,
@@ -55,8 +60,8 @@ export async function generateMetadata(): Promise<Metadata> {
     },
     twitter: {
       card: "summary",
-      title: site.name,
-      description: site.description,
+      title,
+      description: expandedDescription,
     },
   };
 }

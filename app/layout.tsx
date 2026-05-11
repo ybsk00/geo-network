@@ -1,8 +1,34 @@
 import "./globals.css";
 import type { Metadata } from "next";
 import { headers } from "next/headers";
-import { getSiteByHost, NETWORK_SITES } from "@/lib/sites";
+import {
+  buildExpandedDescription,
+  getSiteByHost,
+  isRootDomain,
+  ROOT_DOMAIN,
+  type SiteConfig,
+} from "@/lib/sites";
 import { getFeaturedForSite } from "@/lib/featured-partners";
+
+const FALLBACK_SITE: SiteConfig = {
+  id: "unknown",
+  domain: "geo-networks.com",
+  name: "GEO Networks",
+  tagline: "Content Network",
+  description: "GEO Networks",
+  tone: "neutral",
+  language: "ko",
+  theme: {
+    primaryColor: "#1f2937",
+    bgColor: "#ffffff",
+    textColor: "#111827",
+    accentColor: "#4b5563",
+    fontFamily: "Pretendard",
+    headerStyle: "minimal",
+  },
+  categories: [],
+  footer: "GEO Networks",
+};
 
 // 네이버 서치 어드바이저 소유권 확인 코드 (호스트별)
 const NAVER_VERIFICATION: Record<string, string> = {
@@ -43,6 +69,19 @@ const NAVER_VERIFICATION: Record<string, string> = {
 export async function generateMetadata(): Promise<Metadata> {
   const h = await headers();
   const host = h.get("x-geo-host") ?? h.get("host") ?? "";
+  if (isRootDomain(host)) {
+    return {
+      title: { default: "GEO Networks — 건강·의료·비즈니스 콘텐츠 네트워크", template: "%s | GEO Networks" },
+      description: "GEO Networks는 의료·건강 정보부터 비즈니스·테크 인사이트까지 30여 개 독립 매체를 운영하는 큐레이션 네트워크입니다. 각 매체가 고유한 편집 관점으로 신뢰할 수 있는 정보를 발행해, 독자가 필요한 답을 다양한 시각에서 비교하며 찾을 수 있습니다.",
+      robots: { index: true, follow: true },
+      verification: {
+        other: {
+          "naver-site-verification": NAVER_VERIFICATION[ROOT_DOMAIN],
+        },
+      },
+    };
+  }
+
   const site = getSiteByHost(host);
   if (!site) {
     // Unknown host fallback — 미들웨어가 차단하므로 SSG/build time만 도달.
@@ -55,7 +94,7 @@ export async function generateMetadata(): Promise<Metadata> {
 
   return {
     title: { default: site.name, template: `%s | ${site.name}` },
-    description: site.description,
+    description: buildExpandedDescription(site),
     robots: { index: true, follow: true },
     verification: {
       other: {
@@ -74,7 +113,7 @@ export default async function RootLayout({
   const host = h.get("x-geo-host") ?? h.get("host") ?? "";
   // Unknown host는 미들웨어가 404로 차단 → 여기 도달은 build time/SSG뿐.
   // fallback 첫 사이트 테마 사용 (실 사용자 노출 없음, robots: noindex는 generateMetadata에서).
-  const site = getSiteByHost(host) ?? NETWORK_SITES[0];
+  const site = getSiteByHost(host) ?? FALLBACK_SITE;
   const t = site.theme;
 
   return (

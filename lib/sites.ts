@@ -613,6 +613,25 @@ export const NETWORK_SITES: SiteConfig[] = [
 /** GEO 네트워크 루트 도메인 */
 export const ROOT_DOMAIN = "geo-networks.com";
 
+/**
+ * 사이트의 메타 description을 빙 권장 길이(130~160자)로 확장합니다.
+ * sites.ts의 기본 description은 24~33자로 짧아 빙·네이버가 "너무 짧음"으로 분류함.
+ * 이미 130자 이상이면 그대로 반환.
+ *
+ * 다양성 확보: name + tagline + categories + language를 조합하므로
+ * 30개 사이트가 동일 패턴이어도 각 사이트의 정체성이 description에 그대로 반영됨.
+ */
+export function buildExpandedDescription(site: SiteConfig): string {
+  if (site.description.length >= 130) return site.description;
+  if (site.language === "en") {
+    // 영어 사이트는 이미 64~88자라 짧은 보강만 필요
+    return `${site.description}. An independent editorial network — ${site.tagline}.`;
+  }
+  // 한국어 사이트는 24~33자로 매우 짧음 → 카테고리·tagline 조합으로 130자대 보강
+  const cats = site.categories.slice(0, 4).join(" · ");
+  return `${site.description}. ${site.name}은 ${cats} 카테고리에서 '${site.tagline}' 관점으로 큐레이션 콘텐츠를 발행하며, 신뢰할 수 있는 정보를 한 곳에 정리해 독자에게 전달합니다.`;
+}
+
 /** 등록된 사이트 id 화이트리스트 — Edge runtime 미들웨어용 (NETWORK_SITES 전체보다 가벼움) */
 export const SITE_IDS: ReadonlySet<string> = new Set(
   NETWORK_SITES.map((s) => s.id)
