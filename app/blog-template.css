@@ -54,35 +54,116 @@
   word-break: keep-all; line-height: 1.4;
 }
 
-/* 3) Manual typography — @tailwindcss/typography 부재 (post-body 클래스로 wrap) */
-.blog-template .post-body { font-size: 1rem; line-height: 1.75; }
-.blog-template .post-body p { margin: 0 0 1rem; }
+/* 3) Manual typography — @tailwindcss/typography 부재 (post-body 클래스로 wrap)
+ * 가독성 강화: h2 색·border, h3 색, p 단락 마진 확대, 모바일 최적화 */
+.blog-template .post-body {
+  font-size: 1.0625rem;
+  line-height: 1.85;
+  color: inherit;
+}
+.blog-template .post-body p {
+  margin: 0 0 1.25rem;
+}
 .blog-template .post-body h2 {
-  font-size: 1.5rem; font-weight: 700; margin-top: 2.5rem; margin-bottom: 1rem;
-  letter-spacing: -0.015em; word-break: keep-all;
+  font-size: 1.5rem;
+  font-weight: 700;
+  margin-top: 3rem;
+  margin-bottom: 1rem;
+  padding-bottom: 0.5rem;
+  letter-spacing: -0.015em;
+  word-break: keep-all;
+  line-height: 1.4;
+  color: var(--blog-template-text, inherit);
+  border-bottom: 2px solid var(--blog-template-primary, currentColor);
+  display: inline-block;
 }
 .blog-template .post-body h3 {
-  font-size: 1.125rem; font-weight: 600; margin-top: 1.75rem; margin-bottom: 0.75rem;
+  font-size: 1.1875rem;
+  font-weight: 700;
+  margin-top: 2.25rem;
+  margin-bottom: 0.75rem;
+  word-break: keep-all;
+  line-height: 1.45;
+  color: var(--blog-template-primary, inherit);
+  padding-left: 0.75rem;
+  border-left: 3px solid var(--blog-template-primary, currentColor);
 }
-.blog-template .post-body ul, .blog-template .post-body ol {
-  padding-left: 1.5rem; margin: 0 0 1rem;
+.blog-template .post-body ul,
+.blog-template .post-body ol {
+  padding-left: 1.5rem;
+  margin: 0 0 1.25rem;
 }
-.blog-template .post-body li { margin-bottom: 0.5rem; }
+.blog-template .post-body li {
+  margin-bottom: 0.625rem;
+  line-height: 1.75;
+}
 .blog-template .post-body a {
-  color: var(--blog-template-primary, currentColor); text-decoration: underline;
+  color: var(--blog-template-primary, currentColor);
+  text-decoration: underline;
+  text-underline-offset: 2px;
 }
-.blog-template .post-body strong { font-weight: 700; }
-.blog-template .post-body em { font-style: italic; }
+.blog-template .post-body strong {
+  font-weight: 700;
+  color: var(--blog-template-text, inherit);
+}
+.blog-template .post-body em {
+  font-style: italic;
+}
 .blog-template .post-body code {
   background: var(--blog-template-surface, #f5f5f5);
-  padding: 0.1rem 0.3rem; border-radius: 0.25rem; font-size: 0.9em;
+  padding: 0.15rem 0.4rem;
+  border-radius: 0.25rem;
+  font-size: 0.9em;
   font-family: var(--blog-template-mono, monospace);
 }
-.blog-template .post-body img { max-width: 100%; height: auto; border-radius: 0.5rem; }
-.blog-template .post-body table { border-collapse: collapse; width: 100%; margin: 1rem 0; }
-.blog-template .post-body th, .blog-template .post-body td {
-  border: 1px solid var(--blog-template-border, #e5e7eb); padding: 0.5rem 0.75rem;
+.blog-template .post-body img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 0.5rem;
+  margin: 1.5rem 0;
 }
-.blog-template .post-body blockquote.pull-quote {
-  /* normalize-body 동일 클래스 — typography 룰과 함께 작동 */
+.blog-template .post-body table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 1.5rem 0;
+}
+.blog-template .post-body th,
+.blog-template .post-body td {
+  border: 1px solid var(--blog-template-border, #e5e7eb);
+  padding: 0.625rem 0.875rem;
+}
+.blog-template .post-body th {
+  background: var(--blog-template-surface, #f5f5f5);
+  font-weight: 700;
+  text-align: left;
+}
+
+/* 4) 모바일 최적화 */
+@media (max-width: 768px) {
+  .blog-template h1 {
+    line-height: 1.35 !important;
+    letter-spacing: -0.02em;
+  }
+  .blog-template main,
+  .blog-template > main {
+    padding-left: 1.25rem;
+    padding-right: 1.25rem;
+  }
+  .blog-template .post-body {
+    font-size: 1rem;
+    line-height: 1.8;
+  }
+  .blog-template .post-body h2 {
+    font-size: 1.3125rem;
+    margin-top: 2.25rem;
+    line-height: 1.4;
+  }
+  .blog-template .post-body h3 {
+    font-size: 1.0625rem;
+    margin-top: 1.75rem;
+    line-height: 1.45;
+  }
+  .blog-template .post-body p {
+    margin-bottom: 1.125rem;
+  }
 }
