@@ -28,7 +28,7 @@ export function ModernMinimal(props: BlogTemplateProps) {
         )}
       </header>
 
-      <main className="max-w-2xl mx-auto px-6 md:px-10 py-12 md:py-20">
+      <main className="max-w-3xl mx-auto px-6 md:px-10 py-12 md:py-20">
         <nav className="flex gap-2 text-xs mb-8 justify-center" style={{ color: theme.mutedColor }} aria-label="Breadcrumb">
           <a href={homeUrl}>홈</a><span>·</span><a href={blogUrl}>블로그</a>
           {category && (<><span>·</span><span>{category}</span></>)}

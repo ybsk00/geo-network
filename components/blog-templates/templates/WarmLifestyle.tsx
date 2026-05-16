@@ -32,7 +32,7 @@ export function WarmLifestyle(props: BlogTemplateProps) {
         )}
       </header>
 
-      <main className="max-w-2xl mx-auto px-6 md:px-10 py-10 md:py-16">
+      <main className="max-w-3xl mx-auto px-6 md:px-10 py-10 md:py-16">
         <div className="rounded-3xl p-7 md:p-12 mb-10"
           style={{ background: theme.surfaceColor, boxShadow: "0 4px 24px rgba(58, 40, 32, 0.06)" }}>
           <div className="inline-flex items-center gap-2 text-xs tracking-widest uppercase mb-4" style={{ color: theme.primaryColor }}>

@@ -28,7 +28,7 @@ export function EditorialSerif(props: BlogTemplateProps) {
         )}
       </header>
 
-      <main className="px-6 md:px-32 lg:px-56 pt-16 pb-12">
+      <main className="max-w-5xl mx-auto px-6 md:px-12 pt-16 pb-12">
         <div className="text-xs uppercase tracking-[0.18em] mb-6" style={{ color: theme.primaryColor }}>
           {category ?? "Essay"} · {new Date(publishedAt).toLocaleDateString("ko-KR", { year: "numeric" })}
         </div>
@@ -43,7 +43,7 @@ export function EditorialSerif(props: BlogTemplateProps) {
           </time>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-[1fr_2.4fr] gap-12 lg:gap-14 mt-10">
+        <div className="grid grid-cols-1 lg:grid-cols-[200px_1fr] gap-10 lg:gap-12 mt-10">
           {toc.length >= 2 && (
             <aside className="text-xs leading-relaxed hidden lg:block" style={{ color: theme.mutedColor }}>
               <div className="uppercase tracking-[0.14em] mb-3" style={{ color: theme.textColor }}>In this issue</div>
