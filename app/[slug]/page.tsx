@@ -1,8 +1,14 @@
+import "../blog-template.css";
 import { headers } from "next/headers";
 import { notFound } from "next/navigation";
-import { getSiteByHost } from "@/lib/sites";
+import { getSiteByHost, getTemplateForSite } from "@/lib/sites";
 import { getSupabase } from "@/lib/supabase";
 import type { Metadata } from "next";
+import { TEMPLATES } from "@/components/blog-templates";
+import { safeExternalUrl } from "@/lib/blog-templates/shared/safe-external-url";
+import { normalizeBodyHtml } from "@/lib/blog-templates/shared/normalize-body";
+import { extractToc } from "@/lib/blog-templates/shared/extract-toc";
+import { TEMPLATE_TOKENS, mergeTokens } from "@/lib/blog-templates/shared/tokens";
 
 export const revalidate = 3600;
 
@@ -209,6 +215,71 @@ export default async function PostPage({ params }: PageProps) {
     ],
   };
 
+  // === 새 디자인 템플릿 분기 (BLOG_TEMPLATE_BRANDS === "*"일 때만) ===
+  //     geo-network는 site 단위 컷오버 안 함 — "*" 명시값에서만 활성.
+  //     typo/임의값 사고 차단 (geo-network는 brand 컨셉 없음).
+  const tmplBrands = (process.env.BLOG_TEMPLATE_BRANDS ?? "").trim();
+  if (tmplBrands === "*") {
+    const externalWebsite = safeExternalUrl(brandWebsite, baseUrl);
+    const cta = externalWebsite
+      ? { url: externalWebsite, label: "출처 사이트 보기 →", phone: null }
+      : null;
+
+    const templateId = getTemplateForSite(site.id);
+    const tokens = mergeTokens(TEMPLATE_TOKENS[templateId], {
+      primaryColor: site.theme.primaryColor,
+      bgColor: site.theme.bgColor,
+      textColor: site.theme.textColor,
+    });
+    const normalizedBody = normalizeBodyHtml(post.body_html, { allowDropCap: tokens.dropCap });
+    const toc = extractToc(normalizedBody);
+    const Template = TEMPLATES[templateId];
+
+    // network_posts엔 faq_entries 컬럼 없음 → showFaq=false / faqJsonLd=false
+    // 관련 글은 별도 RelatedPosts 컴포넌트가 article 밖에서 처리하지만,
+    // 새 wrapper는 자체 관련 글 영역이 있으므로 RelatedPosts fetch를 인라인.
+    const supabase = getSupabase();
+    const { data: relatedRaw } = await supabase
+      .from("network_posts")
+      .select("slug, title, category")
+      .eq("site_id", site.id)
+      .eq("status", "published")
+      .neq("slug", slug)
+      .limit(4);
+    const relatedPosts = (relatedRaw ?? []).map((r) => ({
+      slug: r.slug as string,
+      title: r.title as string,
+      category: (r.category as string | null) ?? null,
+    }));
+
+    return (
+      <>
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+        />
+        <Template
+          title={post.title}
+          bodyHtml={normalizedBody}
+          category={post.category}
+          publishedAt={post.published_at}
+          updatedAt={null}
+          brandName={site.name}
+          reviewer={null}
+          homeUrl={baseUrl}
+          blogUrl={baseUrl}
+          toc={toc}
+          showFaqSection={false}
+          faqEntries={[]}
+          relatedPosts={relatedPosts}
+          cta={cta}
+          theme={tokens}
+        />
+      </>
+    );
+  }
+
+  // === 기존 디자인 (fallback) ===
   return (
     <article>
       <script

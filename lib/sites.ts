@@ -707,3 +707,52 @@ export function getSiteByHost(host: string): SiteConfig | null {
 export function getSiteById(id: string): SiteConfig | undefined {
   return NETWORK_SITES.find((s) => s.id === id);
 }
+
+// ============================================
+// 블로그 디자인 템플릿 매핑 (Phase D)
+// site.id → TemplateId. spec §4.2 표 그대로.
+// 30사이트에 10 템플릿을 분산해서 "AI가 서로 다른 매체로 인식" 효과 ↑.
+// ============================================
+
+import type { TemplateId } from "./blog-templates/shared/types";
+
+export const SITE_TEMPLATE_MAP: Record<string, TemplateId> = {
+  // 의료/건강 15
+  "health-guide": "editorial-serif",
+  "medical-review": "magazine-cover",
+  "wellness-today": "warm-lifestyle",
+  "doctor-choice": "clinical-docs",
+  "health-note": "modern-minimal",
+  "care-map": "newspaper-classic",
+  "medilife": "photo-journal",
+  "cure-story": "warm-lifestyle",
+  "smart-health": "bold-display",
+  "my-clinic": "modern-minimal",
+  "health-pick": "magazine-cover",
+  "medi-connect": "clinical-docs",
+  "health-guide-kr": "editorial-serif",
+  "korean-medical": "newspaper-classic",
+  "asia-health": "bold-display",
+  // 치과 5
+  "dental-care": "modern-minimal",
+  "smile-note": "bold-display",
+  "oral-guide": "editorial-serif",
+  "dentist-pick": "modern-minimal",
+  "tooth-review": "magazine-cover",
+  // 비즈/테크 10
+  "tech-insight": "tech-mono",
+  "biz-growth": "modern-minimal",
+  "ai-daily": "tech-mono",
+  "digital-signal": "dark-editorial",
+  "startup-lens": "bold-display",
+  "work-smart": "modern-minimal",
+  "brand-story": "dark-editorial",
+  "future-biz": "tech-mono",
+  "ai-biz-review": "dark-editorial",
+  "growth-lab": "bold-display",
+};
+
+/** site.id → TemplateId. 매핑 없으면 clinical-docs (안전 기본값). */
+export function getTemplateForSite(siteId: string): TemplateId {
+  return SITE_TEMPLATE_MAP[siteId] ?? "clinical-docs";
+}
