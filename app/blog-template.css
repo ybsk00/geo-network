@@ -1,0 +1,88 @@
+/* geo-network/app/blog-template.css
+ *
+ * lumiaeo의 blog-template.css와 동일한 .blog-template scope 클래스 +
+ * @tailwindcss/typography 부재로 인한 manual typography 룰 추가.
+ *
+ * 각 [slug]/page.tsx 최상단에서 명시 import.
+ */
+
+/* 1) normalize-body가 주입하는 클래스 — lumiaeo와 동일 */
+.blog-template .lead { font-size: 1.1875rem; line-height: 1.78; margin-bottom: 1.5rem; }
+.blog-template .lead.has-dropcap::first-letter {
+  float: left; font-size: 5.25rem; line-height: 0.85; font-weight: 500;
+  padding-right: 0.75rem; padding-top: 0.375rem;
+  color: var(--blog-template-primary, currentColor);
+}
+.blog-template .section-title {
+  font-family: var(--blog-template-headline-font, inherit);
+  font-size: 1.5rem; font-weight: 700; line-height: 1.3;
+  margin-top: 2.5rem; margin-bottom: 1rem; letter-spacing: -0.015em; word-break: keep-all;
+}
+.blog-template .sub-title {
+  font-size: 1.125rem; font-weight: 600; margin-top: 1.75rem; margin-bottom: 0.75rem; word-break: keep-all;
+}
+.blog-template .pull-quote {
+  border-left: 3px solid var(--blog-template-primary, currentColor);
+  padding: 0.5rem 0 0.5rem 1.25rem; margin: 1.5rem 0;
+  font-style: italic; color: var(--blog-template-muted, inherit);
+}
+.blog-template .step-cards {
+  list-style: none; padding: 0; display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 0.75rem; margin: 1.5rem 0;
+}
+.blog-template .step-cards > li {
+  padding: 1rem; background: var(--blog-template-surface, #ffffff);
+  border: 1px solid var(--blog-template-border, #e5e7eb); border-radius: 0.625rem;
+}
+.blog-template .step-cards > li > strong:first-child {
+  display: block; font-size: 0.75rem; color: var(--blog-template-primary, currentColor);
+  font-weight: 700; margin-bottom: 0.375rem;
+}
+
+/* 2) sticky CTA + spacer */
+.blog-template .sticky-cta {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 40;
+  padding: 0.75rem 1rem calc(env(safe-area-inset-bottom) + 1rem);
+  background: var(--blog-template-surface, #ffffff);
+  border-top: 1px solid var(--blog-template-border, #e5e7eb);
+  display: flex; gap: 0.75rem; align-items: center; justify-content: space-between;
+}
+.blog-template .sticky-cta-spacer { height: calc(env(safe-area-inset-bottom) + 4.5rem); }
+
+.blog-template h1, .blog-template h2, .blog-template h3 {
+  word-break: keep-all; line-height: 1.4;
+}
+
+/* 3) Manual typography — @tailwindcss/typography 부재 (post-body 클래스로 wrap) */
+.blog-template .post-body { font-size: 1rem; line-height: 1.75; }
+.blog-template .post-body p { margin: 0 0 1rem; }
+.blog-template .post-body h2 {
+  font-size: 1.5rem; font-weight: 700; margin-top: 2.5rem; margin-bottom: 1rem;
+  letter-spacing: -0.015em; word-break: keep-all;
+}
+.blog-template .post-body h3 {
+  font-size: 1.125rem; font-weight: 600; margin-top: 1.75rem; margin-bottom: 0.75rem;
+}
+.blog-template .post-body ul, .blog-template .post-body ol {
+  padding-left: 1.5rem; margin: 0 0 1rem;
+}
+.blog-template .post-body li { margin-bottom: 0.5rem; }
+.blog-template .post-body a {
+  color: var(--blog-template-primary, currentColor); text-decoration: underline;
+}
+.blog-template .post-body strong { font-weight: 700; }
+.blog-template .post-body em { font-style: italic; }
+.blog-template .post-body code {
+  background: var(--blog-template-surface, #f5f5f5);
+  padding: 0.1rem 0.3rem; border-radius: 0.25rem; font-size: 0.9em;
+  font-family: var(--blog-template-mono, monospace);
+}
+.blog-template .post-body img { max-width: 100%; height: auto; border-radius: 0.5rem; }
+.blog-template .post-body table { border-collapse: collapse; width: 100%; margin: 1rem 0; }
+.blog-template .post-body th, .blog-template .post-body td {
+  border: 1px solid var(--blog-template-border, #e5e7eb); padding: 0.5rem 0.75rem;
+}
+.blog-template .post-body blockquote.pull-quote {
+  /* normalize-body 동일 클래스 — typography 룰과 함께 작동 */
+}
