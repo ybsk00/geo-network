@@ -43,7 +43,10 @@ const ROUTE_HANDLER_PATHS = new Set([
 function isRouteHandlerPath(pathname: string): boolean {
   return (
     ROUTE_HANDLER_PATHS.has(pathname) ||
-    pathname.startsWith("/api/")
+    pathname.startsWith("/api/") ||
+    // public/ 정적 파일 — IndexNow key(.txt), favicon(.ico), 검색엔진 인증(.html) 등.
+    // page slug는 영문+숫자+하이픈만 가능하고 점(.)을 포함하지 않으므로 확장자 매칭 안전.
+    /\.[a-zA-Z0-9]+$/.test(pathname)
   );
 }
 
