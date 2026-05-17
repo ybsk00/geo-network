@@ -34,7 +34,9 @@ async function buildRootRss(): Promise<string> {
   }
 
   const items = posts.map((post) => {
-    const link = `${baseUrl}/${post.slug}`;
+    const site = NETWORK_SITES.find((s) => s.id === post.site_id);
+    const siteUrl = site ? `https://${site.domain}` : baseUrl;
+    const link = `${siteUrl}/${post.slug}`;
     const pubDate = new Date(post.published_at).toUTCString();
 
     return `    <item>

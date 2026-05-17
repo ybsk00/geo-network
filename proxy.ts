@@ -29,6 +29,30 @@ const AI_CRAWLERS: Record<string, string> = {
   Bytespider: "ByteDance",
 };
 
+// route handler paths — middleware rewrite 대상에서 제외
+// (이들은 자체 Request 객체에서 host를 읽어 처리하며 ISR/Cache-Control도 route handler가 직접 설정)
+const ROUTE_HANDLER_PATHS = new Set([
+  "/sitemap.xml",
+  "/robots.txt",
+  "/feed.xml",
+  "/rss.xml",
+  "/feed",
+  "/llms.txt",
+]);
+
+function isRouteHandlerPath(pathname: string): boolean {
+  return (
+    ROUTE_HANDLER_PATHS.has(pathname) ||
+    pathname.startsWith("/api/")
+  );
+}
+
+// 외부에서 internal rewrite 타깃에 직접 접근하는 것 차단
+// (Next.js routing은 underscore prefix 폴더를 private로 처리해 rewrite 타깃이 될 수 없으므로
+//  일반 이름의 폴더 `geo`를 internal rewrite 전용으로 예약 — middleware에서 외부 접근 차단)
+const INTERNAL_REWRITE_PREFIX = "/geo";
+const ROOT_SITE_SLUG = "__root__";
+
 function detectCrawler(
   userAgent: string
 ): { crawlerName: string; crawlerLabel: string } | null {
@@ -38,16 +62,6 @@ function detectCrawler(
     }
   }
   return null;
-}
-
-/** valid host 의 site_id 추출 (unknown wildcard는 null) */
-function extractValidSiteId(host: string): string | null {
-  const h = normalizeHost(host);
-  if (h.endsWith(`.${ROOT_DOMAIN}`)) {
-    const subdomain = h.replace(`.${ROOT_DOMAIN}`, "");
-    return SITE_IDS.has(subdomain) ? subdomain : null;
-  }
-  return process.env.SITE_ID ?? null;
 }
 
 /**
@@ -120,20 +134,34 @@ async function recordCrawlerVisit(
 }
 
 /**
- * 미들웨어:
+ * Proxy:
  *  1) www → apex 301 redirect
- *  2) unknown wildcard subdomain (예: does-not-exist.geo-networks.com) → 404 + noindex
- *     · 와일드카드 도메인이 "무한 생성 가능 저품질 호스트"로 Google에 평가되는 것을 막음
- *  3) valid host에 한해 사이트 ID 헤더 주입 + AI 크롤러 헤더 + 봇 방문 로깅
- *  4) robots.txt도 미들웨어가 잡도록 matcher에서 제외 제거
+ *  2) unknown wildcard subdomain → 404 + noindex
+ *  3) 외부에서 /__internal/... 직접 접근 → 404 (internal rewrite 타깃 보호)
+ *  4) valid host + page path → /__internal/<siteSlug>/<path>로 internal rewrite (ISR 활성화 목적)
+ *     · route handler(sitemap/robots/feed 등)와 /api/*는 rewrite 안 함
+ *  5) 봇 방문 로깅
  */
-export function middleware(request: NextRequest) {
+export function proxy(request: NextRequest) {
   const rawHost = request.headers.get("host") ?? "";
   const host = normalizeHost(rawHost);
+  const pathname = request.nextUrl.pathname;
 
   // 1) www → apex
   if (host === `www.${ROOT_DOMAIN}`) {
-    return NextResponse.redirect(`https://${ROOT_DOMAIN}${request.nextUrl.pathname}`, 301);
+    return NextResponse.redirect(`https://${ROOT_DOMAIN}${pathname}`, 301);
+  }
+
+  // 3) 외부에서 internal rewrite 타깃에 직접 접근하는 것 차단
+  if (pathname === INTERNAL_REWRITE_PREFIX || pathname.startsWith(`${INTERNAL_REWRITE_PREFIX}/`)) {
+    return new NextResponse("Not Found", {
+      status: 404,
+      headers: {
+        "Content-Type": "text/plain; charset=utf-8",
+        "X-Robots-Tag": "noindex, nofollow",
+        "Cache-Control": "no-store",
+      },
+    });
   }
 
   // 2) unknown wildcard subdomain 차단
@@ -159,33 +187,36 @@ export function middleware(request: NextRequest) {
     }
   }
 
-  const response = NextResponse.next();
-  response.headers.set("x-geo-host", host);
-
   const ua = request.headers.get("user-agent") ?? "";
   const crawler = detectCrawler(ua);
+  const siteSlug = isRoot ? ROOT_SITE_SLUG : validSiteId;
 
-  if (crawler) {
-    response.headers.set(
-      "X-Robots-Tag",
-      "index, follow, max-snippet:-1, max-image-preview:large"
+  // 4) page path → internal rewrite (ISR 활성화)
+  //    route handler paths(sitemap/robots/...)와 /api/*는 rewrite 안 함
+  const shouldRewrite = siteSlug && !isRouteHandlerPath(pathname);
+  let response: NextResponse;
+  if (shouldRewrite) {
+    const rewriteUrl = request.nextUrl.clone();
+    rewriteUrl.pathname = `${INTERNAL_REWRITE_PREFIX}/${siteSlug}${pathname === "/" ? "" : pathname}`;
+    response = NextResponse.rewrite(rewriteUrl);
+  } else {
+    response = NextResponse.next();
+  }
+  response.headers.set("x-geo-host", host);
+
+  // 봇 방문 로깅 — valid siteId일 때만
+  if (crawler && validSiteId) {
+    const ipAddress =
+      request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || null;
+    waitUntil(
+      recordCrawlerVisit(validSiteId, crawler, pathname, ua, ipAddress)
     );
-    response.headers.set("Cache-Control", "public, max-age=3600");
-
-    // valid siteId 일 때만 봇 방문 기록 — unknown host 노이즈 차단
-    if (validSiteId) {
-      const ipAddress =
-        request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || null;
-      waitUntil(
-        recordCrawlerVisit(validSiteId, crawler, request.nextUrl.pathname, ua, ipAddress)
-      );
-    }
   }
 
   return response;
 }
 
-// robots.txt도 미들웨어 거치도록 matcher에서 제외 제거
+// robots.txt도 proxy를 거치도록 matcher에서 제외 제거
 // (이전엔 robots\\.txt 제외였음 → unknown host의 robots.txt가 살아남던 사고)
 export const config = {
   matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"],

@@ -1,23 +1,37 @@
-import { headers } from "next/headers";
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { buildExpandedDescription, getSiteByHost, isRootDomain as isRoot, NETWORK_SITES, ROOT_DOMAIN } from "@/lib/sites";
+import {
+  buildExpandedDescription,
+  getSiteById,
+  NETWORK_SITES,
+  ROOT_DOMAIN,
+} from "@/lib/sites";
 import { ALL_PARTNERS } from "@/lib/featured-partners";
 import { getSupabase } from "@/lib/supabase";
 import type { Metadata } from "next";
 
-export const revalidate = 3600; // 1시간 ISR
+// ISR — page 단위 캐싱
+export const revalidate = 3600;
+export const dynamicParams = true;
 
-function isRootDomain(host: string): boolean {
-  return host === "" || isRoot(host);
+// 모든 path는 on-demand SSG (첫 방문 시 정적 생성 + 1시간 캐시)
+// 빈 generateStaticParams + dynamicParams=true 조합으로 dynamic 강제를 풀고 ISR 활성화.
+export async function generateStaticParams() {
+  return [];
 }
 
-export async function generateMetadata(): Promise<Metadata> {
-  const h = await headers();
-  const host = h.get("x-geo-host") ?? h.get("host") ?? "";
+const ROOT_SITE_SLUG = "__root__";
 
-  if (isRootDomain(host)) {
-    const rootDescription = "GEO Networks는 의료·건강 정보부터 비즈니스·테크 인사이트까지 30여 개 독립 매체를 운영하는 큐레이션 네트워크입니다. 각 매체가 고유한 편집 관점으로 신뢰할 수 있는 정보를 발행해, 독자가 필요한 답을 다양한 시각에서 비교하며 찾을 수 있습니다.";
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ site: string }>;
+}): Promise<Metadata> {
+  const { site: siteParam } = await params;
+
+  if (siteParam === ROOT_SITE_SLUG) {
+    const rootDescription =
+      "GEO Networks는 의료·건강 정보부터 비즈니스·테크 인사이트까지 30여 개 독립 매체를 운영하는 큐레이션 네트워크입니다. 각 매체가 고유한 편집 관점으로 신뢰할 수 있는 정보를 발행해, 독자가 필요한 답을 다양한 시각에서 비교하며 찾을 수 있습니다.";
     return {
       title: "GEO Networks — 건강·의료·비즈니스 콘텐츠 네트워크",
       description: rootDescription,
@@ -31,25 +45,19 @@ export async function generateMetadata(): Promise<Metadata> {
     };
   }
 
-  const site = getSiteByHost(host);
+  const site = getSiteById(siteParam);
   if (!site) {
-    return {
-      title: "Not Found",
-      robots: { index: false, follow: false },
-    };
+    return { title: "Not Found", robots: { index: false, follow: false } };
   }
-  const baseUrl = `https://${host}`;
+  const baseUrl = `https://${site.domain}`;
   const expandedDescription = buildExpandedDescription(site);
-  // 빙은 title 50~60자 권장. name+tagline만으론 짧아 카테고리 2개 추가.
   const cats = site.categories.slice(0, 2).join(" · ");
   const title = `${site.name} — ${site.tagline}${cats ? ` | ${cats}` : ""}`;
 
   return {
     title,
     description: expandedDescription,
-    alternates: {
-      canonical: baseUrl,
-    },
+    alternates: { canonical: baseUrl },
     openGraph: {
       title,
       description: expandedDescription,
@@ -66,18 +74,20 @@ export async function generateMetadata(): Promise<Metadata> {
   };
 }
 
-export default async function HomePage() {
-  const h = await headers();
-  const host = h.get("x-geo-host") ?? h.get("host") ?? "";
+export default async function SiteHomePage({
+  params,
+}: {
+  params: Promise<{ site: string }>;
+}) {
+  const { site: siteParam } = await params;
 
-  // 루트 도메인 → 포털 페이지
-  if (isRootDomain(host)) {
+  if (siteParam === ROOT_SITE_SLUG) {
     return <PortalPage />;
   }
 
-  const site = getSiteByHost(host);
+  const site = getSiteById(siteParam);
   if (!site) notFound();
-  const baseUrl = `https://${host}`;
+  const baseUrl = `https://${site.domain}`;
 
   let postList: Array<{
     id: string;
@@ -151,7 +161,6 @@ export default async function HomePage() {
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
 
-      {/* 히어로 */}
       <section className="mb-12">
         <h2 className="text-3xl font-bold mb-2">{site.tagline}</h2>
         <p className="text-base opacity-70 max-w-xl">{site.description}</p>
@@ -221,7 +230,8 @@ function PortalPage() {
     "@type": "WebSite",
     name: "GEO Networks",
     url: `https://${ROOT_DOMAIN}`,
-    description: "전문가가 검증한 건강 정보를 다양한 관점에서 제공하는 독립 미디어 네트워크",
+    description:
+      "전문가가 검증한 건강 정보를 다양한 관점에서 제공하는 독립 미디어 네트워크",
     publisher: {
       "@type": "Organization",
       name: "GEO Networks",
@@ -264,7 +274,10 @@ function PortalPage() {
                   className="w-3 h-3 rounded-full"
                   style={{ backgroundColor: s.theme.primaryColor }}
                 />
-                <span className="font-bold" style={{ color: s.theme.primaryColor }}>
+                <span
+                  className="font-bold"
+                  style={{ color: s.theme.primaryColor }}
+                >
                   {s.name}
                 </span>
               </div>
@@ -292,7 +305,10 @@ function PortalPage() {
                   className="w-3 h-3 rounded-full"
                   style={{ backgroundColor: s.theme.primaryColor }}
                 />
-                <span className="font-bold" style={{ color: s.theme.primaryColor }}>
+                <span
+                  className="font-bold"
+                  style={{ color: s.theme.primaryColor }}
+                >
                   {s.name}
                 </span>
               </div>
@@ -321,7 +337,10 @@ function PortalPage() {
                     className="w-3 h-3 rounded-full"
                     style={{ backgroundColor: s.theme.primaryColor }}
                   />
-                  <span className="font-bold" style={{ color: s.theme.primaryColor }}>
+                  <span
+                    className="font-bold"
+                    style={{ color: s.theme.primaryColor }}
+                  >
                     {s.name}
                   </span>
                 </div>
@@ -333,8 +352,10 @@ function PortalPage() {
         </section>
       )}
 
-      {/* 협업 의료/비즈 파트너 — 본체 lumiaeo.com 서브도메인 4 brand */}
-      <section className="mb-12 mt-16 pt-12 border-t" style={{ borderColor: "#e2e8f0" }}>
+      <section
+        className="mb-12 mt-16 pt-12 border-t"
+        style={{ borderColor: "#e2e8f0" }}
+      >
         <h3 className="text-sm font-semibold uppercase tracking-wider opacity-50 mb-2">
           협업 파트너 / Editorial Partners ({ALL_PARTNERS.length})
         </h3>
@@ -351,7 +372,10 @@ function PortalPage() {
               style={{ borderColor: "#cbd5e1" }}
             >
               <div className="flex items-center gap-3 mb-2">
-                <div className="w-3 h-3 rounded-full" style={{ backgroundColor: "#0f172a" }} />
+                <div
+                  className="w-3 h-3 rounded-full"
+                  style={{ backgroundColor: "#0f172a" }}
+                />
                 <span className="font-bold" style={{ color: "#0f172a" }}>
                   {p.name}
                 </span>

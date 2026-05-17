@@ -105,21 +105,6 @@ ${entries
     );
   }
 
-  const categories = new Set<string>();
-  for (const post of posts) {
-    if (post.category) categories.add(post.category);
-  }
-  for (const cat of categories) {
-    urls.push(
-      `  <url>
-    <loc>${baseUrl}/category/${encodeURIComponent(cat)}</loc>
-    <lastmod>${latestDate}</lastmod>
-    <changefreq>weekly</changefreq>
-    <priority>0.6</priority>
-  </url>`
-    );
-  }
-
   const xml = `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
 ${urls.join("\n")}

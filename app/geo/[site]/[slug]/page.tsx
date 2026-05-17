@@ -1,7 +1,6 @@
-import "../blog-template.css";
-import { headers } from "next/headers";
+import "../../../blog-template.css";
 import { notFound } from "next/navigation";
-import { getSiteByHost, getTemplateForSite } from "@/lib/sites";
+import { getSiteById, getTemplateForSite } from "@/lib/sites";
 import { getSupabase } from "@/lib/supabase";
 import type { Metadata } from "next";
 import { TEMPLATES } from "@/components/blog-templates";
@@ -11,20 +10,25 @@ import { extractToc } from "@/lib/blog-templates/shared/extract-toc";
 import { TEMPLATE_TOKENS, mergeTokens } from "@/lib/blog-templates/shared/tokens";
 
 export const revalidate = 3600;
+export const dynamicParams = true;
+
+// 모든 path는 on-demand SSG. 첫 요청 시 정적 생성 + 1시간 캐시 (params await가 dynamic API로 분류돼
+// 그냥 revalidate만 두면 dynamic 강제됨 — generateStaticParams 명시로 ISR 활성화)
+export async function generateStaticParams() {
+  return [];
+}
 
 interface PageProps {
-  params: Promise<{ slug: string }>;
+  params: Promise<{ site: string; slug: string }>;
 }
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
-  const { slug } = await params;
-  const h = await headers();
-  const host = h.get("x-geo-host") ?? h.get("host") ?? "";
-  const site = getSiteByHost(host);
+  const { site: siteParam, slug } = await params;
+  const site = getSiteById(siteParam);
   if (!site) {
     return { title: "Not Found", robots: { index: false, follow: false } };
   }
-  const baseUrl = `https://${host}`;
+  const baseUrl = `https://${site.domain}`;
 
   try {
     const supabase = getSupabase();
@@ -44,9 +48,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     return {
       title: post.title,
       description,
-      alternates: {
-        canonical: pageUrl,
-      },
+      alternates: { canonical: pageUrl },
       openGraph: {
         title: post.title,
         description,
@@ -69,13 +71,11 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 }
 
 export default async function PostPage({ params }: PageProps) {
-  const { slug } = await params;
-  const h = await headers();
-  const host = h.get("x-geo-host") ?? h.get("host") ?? "";
-  const site = getSiteByHost(host);
+  const { site: siteParam, slug } = await params;
+  const site = getSiteById(siteParam);
   if (!site) notFound();
   const t = site.theme;
-  const baseUrl = `https://${host}`;
+  const baseUrl = `https://${site.domain}`;
 
   interface NetworkPost {
     title: string;
@@ -104,7 +104,7 @@ export default async function PostPage({ params }: PageProps) {
 
   if (!post) notFound();
 
-  // brand 정보(원본 사이트 URL) — mentions에 sameAs용으로 활용
+  // brand 정보 — mentions에 sameAs용
   let brandWebsite: string | null = null;
   let brandSubdomain: string | null = null;
   if (post.brand_id) {
@@ -118,14 +118,13 @@ export default async function PostPage({ params }: PageProps) {
       brandWebsite = (brand?.website_url as string | null) ?? null;
       brandSubdomain = (brand?.subdomain as string | null) ?? null;
     } catch {
-      // brand 조회 실패는 무시
+      // ignore
     }
   }
 
   const pageUrl = `${baseUrl}/${slug}`;
   const description = post.meta_description ?? post.excerpt ?? post.title;
 
-  // about/mentions 빌드 — Article 엔티티 신호
   const aboutThings = [
     ...(post.category ? [{ "@type": "Thing", name: post.category }] : []),
     { "@type": "Thing", name: site.name },
@@ -143,7 +142,6 @@ export default async function PostPage({ params }: PageProps) {
     mentionsThings.push(mention);
   }
 
-  // JSON-LD @graph: Article + BreadcrumbList + Organization
   const jsonLd = {
     "@context": "https://schema.org",
     "@graph": [
@@ -155,16 +153,8 @@ export default async function PostPage({ params }: PageProps) {
         datePublished: post.published_at,
         dateModified: post.published_at,
         mainEntityOfPage: { "@type": "WebPage", "@id": pageUrl },
-        author: {
-          "@type": "Organization",
-          name: site.name,
-          url: baseUrl,
-        },
-        publisher: {
-          "@type": "Organization",
-          name: site.name,
-          url: baseUrl,
-        },
+        author: { "@type": "Organization", name: site.name, url: baseUrl },
+        publisher: { "@type": "Organization", name: site.name, url: baseUrl },
         inLanguage: site.language === "en" ? "en-US" : "ko-KR",
         ...(post.category && { articleSection: post.category }),
         ...(aboutThings.length > 0 && { about: aboutThings }),
@@ -174,20 +164,9 @@ export default async function PostPage({ params }: PageProps) {
       {
         "@type": "BreadcrumbList",
         itemListElement: [
-          {
-            "@type": "ListItem",
-            position: 1,
-            name: site.name,
-            item: baseUrl,
-          },
+          { "@type": "ListItem", position: 1, name: site.name, item: baseUrl },
           ...(post.category
-            ? [
-                {
-                  "@type": "ListItem",
-                  position: 2,
-                  name: post.category,
-                },
-              ]
+            ? [{ "@type": "ListItem", position: 2, name: post.category }]
             : []),
           {
             "@type": "ListItem",
@@ -216,8 +195,6 @@ export default async function PostPage({ params }: PageProps) {
   };
 
   // === 새 디자인 템플릿 분기 (BLOG_TEMPLATE_BRANDS === "*"일 때만) ===
-  //     geo-network는 site 단위 컷오버 안 함 — "*" 명시값에서만 활성.
-  //     typo/임의값 사고 차단 (geo-network는 brand 컨셉 없음).
   const tmplBrands = (process.env.BLOG_TEMPLATE_BRANDS ?? "").trim();
   if (tmplBrands === "*") {
     const externalWebsite = safeExternalUrl(brandWebsite, baseUrl);
@@ -231,13 +208,12 @@ export default async function PostPage({ params }: PageProps) {
       bgColor: site.theme.bgColor,
       textColor: site.theme.textColor,
     });
-    const normalizedBody = normalizeBodyHtml(post.body_html, { allowDropCap: tokens.dropCap });
+    const normalizedBody = normalizeBodyHtml(post.body_html, {
+      allowDropCap: tokens.dropCap,
+    });
     const toc = extractToc(normalizedBody);
     const Template = TEMPLATES[templateId];
 
-    // network_posts엔 faq_entries 컬럼 없음 → showFaq=false / faqJsonLd=false
-    // 관련 글은 별도 RelatedPosts 컴포넌트가 article 밖에서 처리하지만,
-    // 새 wrapper는 자체 관련 글 영역이 있으므로 RelatedPosts fetch를 인라인.
     const supabase = getSupabase();
     const { data: relatedRaw } = await supabase
       .from("network_posts")
@@ -287,7 +263,6 @@ export default async function PostPage({ params }: PageProps) {
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
 
-      {/* 브레드크럼 네비게이션 */}
       <nav className="text-xs opacity-50 mb-6" aria-label="Breadcrumb">
         <ol className="flex items-center gap-1">
           <li>
@@ -336,7 +311,6 @@ export default async function PostPage({ params }: PageProps) {
         )}
       </div>
 
-      {/* 본문 */}
       <div
         className="prose prose-lg max-w-none"
         style={
@@ -348,8 +322,11 @@ export default async function PostPage({ params }: PageProps) {
         dangerouslySetInnerHTML={{ __html: post.body_html }}
       />
 
-      {/* 관련 글 */}
-      <RelatedPosts siteId={site.id} currentSlug={slug} category={post.category} />
+      <RelatedPosts
+        siteId={site.id}
+        currentSlug={slug}
+        category={post.category}
+      />
     </article>
   );
 }
@@ -381,7 +358,10 @@ async function RelatedPosts({
   if (!related?.length) return null;
 
   return (
-    <nav className="mt-16 pt-8 border-t border-gray-200" aria-label="Related articles">
+    <nav
+      className="mt-16 pt-8 border-t border-gray-200"
+      aria-label="Related articles"
+    >
       <h2 className="text-lg font-semibold mb-4">관련 글</h2>
       <div className="grid gap-3">
         {related.map((r) => (
