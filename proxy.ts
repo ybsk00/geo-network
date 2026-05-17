@@ -53,6 +53,36 @@ function isRouteHandlerPath(pathname: string): boolean {
 const INTERNAL_REWRITE_PREFIX = "/geo";
 const ROOT_SITE_SLUG = "__root__";
 
+/**
+ * 옛 색인 보존을 위한 slug → site_id 조회.
+ * root 도메인(`geo-networks.com/<slug>`)이 외부 검색엔진에 색인된 경우(2026-05-17 사고)
+ * 정확한 site 서브도메인으로 301 redirect해 404를 회피.
+ *
+ * 동일 slug가 여러 site에 발행됐을 때 — 가장 먼저 발행된 site로 redirect (canonical 후보).
+ */
+async function findSiteForSlug(slug: string): Promise<string | null> {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!supabaseUrl || !serviceKey) return null;
+  try {
+    const res = await fetch(
+      `${supabaseUrl}/rest/v1/network_posts?slug=eq.${encodeURIComponent(
+        slug
+      )}&status=eq.published&select=site_id&order=published_at.asc&limit=1`,
+      {
+        headers: {
+          apikey: serviceKey,
+          Authorization: `Bearer ${serviceKey}`,
+        },
+      }
+    );
+    const rows = (await res.json()) as Array<{ site_id: string }>;
+    return rows?.[0]?.site_id ?? null;
+  } catch {
+    return null;
+  }
+}
+
 function detectCrawler(
   userAgent: string
 ): { crawlerName: string; crawlerLabel: string } | null {
@@ -138,11 +168,12 @@ async function recordCrawlerVisit(
  *  1) www → apex 301 redirect
  *  2) unknown wildcard subdomain → 404 + noindex
  *  3) 외부에서 /__internal/... 직접 접근 → 404 (internal rewrite 타깃 보호)
- *  4) valid host + page path → /__internal/<siteSlug>/<path>로 internal rewrite (ISR 활성화 목적)
+ *  4) root host + slug 경로 → 정확한 site 서브도메인으로 301 redirect (옛 색인 보존)
+ *  5) valid host + page path → /geo/<siteSlug>/<path>로 internal rewrite (ISR 활성화 목적)
  *     · route handler(sitemap/robots/feed 등)와 /api/*는 rewrite 안 함
- *  5) 봇 방문 로깅
+ *  6) 봇 방문 로깅
  */
-export function proxy(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   const rawHost = request.headers.get("host") ?? "";
   const host = normalizeHost(rawHost);
   const pathname = request.nextUrl.pathname;
@@ -162,6 +193,29 @@ export function proxy(request: NextRequest) {
         "Cache-Control": "no-store",
       },
     });
+  }
+
+  // 4) root host(`geo-networks.com`) + slug 형식 path → 정확한 site로 301 redirect
+  //    외부 검색엔진에 색인된 옛 root URL 보존 (2026-05-17 404 사고 핫픽스).
+  //    route handler / internal path / /api/ / static asset은 제외.
+  if (
+    isRootDomain(host) &&
+    pathname !== "/" &&
+    !isRouteHandlerPath(pathname) &&
+    !pathname.startsWith(INTERNAL_REWRITE_PREFIX + "/") &&
+    pathname !== INTERNAL_REWRITE_PREFIX
+  ) {
+    const candidate = pathname.replace(/^\/+/, "").replace(/\/$/, "");
+    // 단일 segment + slug 형식만 redirect 대상 (다중 segment, 영문 외 문자 제외)
+    if (/^[a-z0-9][a-z0-9-]*$/.test(candidate)) {
+      const targetSite = await findSiteForSlug(candidate);
+      if (targetSite) {
+        return NextResponse.redirect(
+          `https://${targetSite}.${ROOT_DOMAIN}/${candidate}`,
+          301
+        );
+      }
+    }
   }
 
   // 2) unknown wildcard subdomain 차단
