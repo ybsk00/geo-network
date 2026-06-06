@@ -72,6 +72,7 @@ ${entries
       .select("slug, published_at, category")
       .eq("site_id", siteId)
       .eq("status", "published")
+      .eq("billing_only", false) // 대량 발행 과금용 격리: 색인 제외
       .order("published_at", { ascending: false })
       .limit(500);
     posts = data ?? [];

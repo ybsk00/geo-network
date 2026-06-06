@@ -16,7 +16,8 @@ import { getSupabase } from "@/lib/supabase";
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { apiKey, siteId, posts } = body;
+    // billing_only: 대량 발행 과금용 일괄 플래그(배치 전체) — 개별 post.billing_only가 우선
+    const { apiKey, siteId, posts, billing_only: batchBillingOnly } = body;
 
     // API 키 인증
     if (apiKey !== process.env.NETWORK_API_KEY) {
@@ -51,6 +52,7 @@ export async function POST(request: NextRequest) {
         brand_name?: string;
         brand_id?: string;
         source_content_id?: string;
+        billing_only?: boolean;
       }) => ({
         site_id: siteId,
         slug: p.slug,
@@ -62,6 +64,7 @@ export async function POST(request: NextRequest) {
         brand_name: p.brand_name ?? null,
         brand_id: p.brand_id ?? null,
         source_content_id: p.source_content_id ?? null,
+        billing_only: p.billing_only ?? batchBillingOnly ?? false,
         status: "published",
         published_at: new Date().toISOString(),
       }));

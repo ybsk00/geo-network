@@ -26,6 +26,7 @@ async function buildRootRss(): Promise<string> {
       .from("network_posts")
       .select("slug, title, excerpt, site_id, published_at, category")
       .eq("status", "published")
+      .eq("billing_only", false) // 대량 발행 과금용 격리: 피드 제외
       .order("published_at", { ascending: false })
       .limit(50);
     posts = data ?? [];
@@ -81,6 +82,7 @@ async function buildSiteRss(host: string): Promise<string | null> {
       .select("slug, title, excerpt, published_at, category")
       .eq("site_id", site.id)
       .eq("status", "published")
+      .eq("billing_only", false) // 대량 발행 과금용 격리: 피드 제외
       .order("published_at", { ascending: false })
       .limit(30);
     posts = data ?? [];
