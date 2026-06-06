@@ -8,17 +8,12 @@ import {
 } from "@/lib/sites";
 import { ALL_PARTNERS } from "@/lib/featured-partners";
 import { getSupabase } from "@/lib/supabase";
+import { headers } from "next/headers";
 import type { Metadata } from "next";
 
-// ISR — page 단위 캐싱
-export const revalidate = 3600;
+// canonical을 요청 host 기반으로 생성하려면 headers() 필요 → 동적 렌더 강제.
+export const dynamic = "force-dynamic";
 export const dynamicParams = true;
-
-// 모든 path는 on-demand SSG (첫 방문 시 정적 생성 + 1시간 캐시)
-// 빈 generateStaticParams + dynamicParams=true 조합으로 dynamic 강제를 풀고 ISR 활성화.
-export async function generateStaticParams() {
-  return [];
-}
 
 const ROOT_SITE_SLUG = "__root__";
 
@@ -49,7 +44,10 @@ export async function generateMetadata({
   if (!site) {
     return { title: "Not Found", robots: { index: false, follow: false } };
   }
-  const baseUrl = `https://${site.domain}`;
+  // canonical/og를 요청 host 기반으로 — 글 페이지와 동일(sitemap과 일치, 죽은 커스텀 도메인 회피)
+  const h = await headers();
+  const host = h.get("x-geo-host") ?? h.get("host") ?? site.domain;
+  const baseUrl = `https://${host}`;
   const expandedDescription = buildExpandedDescription(site);
   const cats = site.categories.slice(0, 2).join(" · ");
   const title = `${site.name} — ${site.tagline}${cats ? ` | ${cats}` : ""}`;
@@ -104,6 +102,7 @@ export default async function SiteHomePage({
       .select("id, slug, title, excerpt, category, published_at")
       .eq("site_id", site.id)
       .eq("status", "published")
+      .eq("billing_only", false) // 대량 발행 과금용 격리: 리스팅(내부 링크) 제외
       .order("published_at", { ascending: false })
       .limit(20);
     postList = posts ?? [];
@@ -161,6 +160,14 @@ export default async function SiteHomePage({
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
 
+      <header className="border-b" style={{ borderBottomColor: `${t.primaryColor}20` }}>
+        <div className="max-w-4xl mx-auto px-6 py-4">
+          <p className="text-xl font-bold" style={{ color: t.primaryColor }}>{site.name}</p>
+          <p className="text-xs opacity-60">{site.tagline}</p>
+        </div>
+      </header>
+
+      <div className="max-w-4xl mx-auto px-6 py-8">
       <section className="mb-12">
         <h2 className="text-3xl font-bold mb-2">{site.tagline}</h2>
         <p className="text-base opacity-70 max-w-xl">{site.description}</p>
@@ -215,6 +222,7 @@ export default async function SiteHomePage({
           ))}
         </div>
       )}
+      </div>
     </div>
   );
 }

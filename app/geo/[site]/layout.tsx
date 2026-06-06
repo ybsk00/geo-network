@@ -153,36 +153,13 @@ export default async function SiteLayout({
           minHeight: "100vh",
         }}
       >
-        {!isPortal && (
-          <header
-            style={{ borderBottomColor: `${t.primaryColor}20` }}
-            className="border-b"
-          >
-            <div className="max-w-4xl mx-auto px-6 py-4 flex items-center justify-between">
-              <div>
-                <p
-                  className="text-xl font-bold"
-                  style={{ color: t.primaryColor }}
-                >
-                  {site.name}
-                </p>
-                <p className="text-xs opacity-60">{site.tagline}</p>
-              </div>
-              <nav className="hidden md:flex gap-4 text-sm">
-                {site.categories.slice(0, 4).map((cat) => (
-                  <span
-                    key={cat}
-                    className="opacity-70 hover:opacity-100 cursor-default"
-                  >
-                    {cat}
-                  </span>
-                ))}
-              </nav>
-            </div>
-          </header>
+        {/* 헤더 제거: 블로그 템플릿(글 페이지)이 자체 헤더를 렌더해 이중 헤더가 됐었음.
+            랜딩 페이지는 자체 헤더를 직접 렌더(geo/[site]/page.tsx). 글 페이지는 풀폭 템플릿이라 main wrapper 미적용. */}
+        {isPortal ? (
+          <main className="max-w-4xl mx-auto px-6 py-8">{children}</main>
+        ) : (
+          <main>{children}</main>
         )}
-
-        <main className="max-w-4xl mx-auto px-6 py-8">{children}</main>
 
         {!isPortal && (
           <footer

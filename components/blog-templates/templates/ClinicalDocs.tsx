@@ -34,7 +34,7 @@ export function ClinicalDocs(props: BlogTemplateProps) {
         )}
       </header>
 
-      <div className="grid grid-cols-1 md:grid-cols-[240px_1fr_220px] gap-0">
+      <div className={`grid grid-cols-1 gap-0 ${toc.length >= 2 ? "md:grid-cols-[240px_1fr_220px]" : "md:grid-cols-[240px_1fr]"}`}>
         <aside className="hidden md:block px-6 py-8"
           style={{ borderRight: `1px solid ${theme.borderColor}`, background: theme.surfaceColor }}>
           <div className="text-[11px] font-semibold uppercase tracking-wider mb-3" style={{ color: theme.mutedColor }}>건강 정보</div>

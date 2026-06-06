@@ -1,5 +1,6 @@
 import "../../../blog-template.css";
 import { notFound } from "next/navigation";
+import { headers } from "next/headers";
 import { getSiteById, getTemplateForSite } from "@/lib/sites";
 import { getSupabase } from "@/lib/supabase";
 import type { Metadata } from "next";
@@ -9,14 +10,10 @@ import { normalizeBodyHtml } from "@/lib/blog-templates/shared/normalize-body";
 import { extractToc } from "@/lib/blog-templates/shared/extract-toc";
 import { TEMPLATE_TOKENS, mergeTokens } from "@/lib/blog-templates/shared/tokens";
 
-export const revalidate = 3600;
+// canonical/og를 요청 host 기반으로 생성하려면 headers()가 필요 → 동적 렌더 강제.
+// (이전 ISR + generateStaticParams 조합은 headers() 사용 시 "Dynamic server usage" 예외로 500 유발)
+export const dynamic = "force-dynamic";
 export const dynamicParams = true;
-
-// 모든 path는 on-demand SSG. 첫 요청 시 정적 생성 + 1시간 캐시 (params await가 dynamic API로 분류돼
-// 그냥 revalidate만 두면 dynamic 강제됨 — generateStaticParams 명시로 ISR 활성화)
-export async function generateStaticParams() {
-  return [];
-}
 
 interface PageProps {
   params: Promise<{ site: string; slug: string }>;
@@ -28,13 +25,18 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   if (!site) {
     return { title: "Not Found", robots: { index: false, follow: false } };
   }
-  const baseUrl = `https://${site.domain}`;
+  // canonical/og.url을 요청 host 기반으로 — sitemap.xml/rss.xml/llms.txt와 동일.
+  // site.domain(커스텀 도메인) 고정 시 sitemap(host)과 불일치 → "크롤링됨-색인 안됨" 유발.
+  // site.domain은 네이버 인증 키(layout.tsx)로도 쓰여 건드리지 않음.
+  const h = await headers();
+  const host = h.get("x-geo-host") ?? h.get("host") ?? site.domain;
+  const baseUrl = `https://${host}`;
 
   try {
     const supabase = getSupabase();
     const { data: post } = await supabase
       .from("network_posts")
-      .select("title, excerpt, meta_description, category, published_at")
+      .select("title, excerpt, meta_description, category, published_at, billing_only")
       .eq("site_id", site.id)
       .eq("slug", slug)
       .eq("status", "published")
@@ -48,6 +50,8 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     return {
       title: post.title,
       description,
+      // 대량 발행 과금용(billing_only)은 noindex — 발행은 되지만 색인 격리
+      ...(post.billing_only ? { robots: { index: false, follow: true } } : {}),
       alternates: { canonical: pageUrl },
       openGraph: {
         title: post.title,
@@ -165,15 +169,7 @@ export default async function PostPage({ params }: PageProps) {
         "@type": "BreadcrumbList",
         itemListElement: [
           { "@type": "ListItem", position: 1, name: site.name, item: baseUrl },
-          ...(post.category
-            ? [{ "@type": "ListItem", position: 2, name: post.category }]
-            : []),
-          {
-            "@type": "ListItem",
-            position: post.category ? 3 : 2,
-            name: post.title,
-            item: pageUrl,
-          },
+          { "@type": "ListItem", position: 2, name: post.title, item: pageUrl },
         ],
       },
       {
@@ -220,6 +216,7 @@ export default async function PostPage({ params }: PageProps) {
       .select("slug, title, category")
       .eq("site_id", site.id)
       .eq("status", "published")
+      .eq("billing_only", false) // 대량 발행 과금용 격리: 관련글 제외
       .neq("slug", slug)
       .limit(4);
     const relatedPosts = (relatedRaw ?? []).map((r) => ({
@@ -347,6 +344,7 @@ async function RelatedPosts({
     .select("slug, title")
     .eq("site_id", siteId)
     .eq("status", "published")
+    .eq("billing_only", false) // 대량 발행 과금용 격리: 관련글 제외
     .neq("slug", currentSlug)
     .limit(4);
 

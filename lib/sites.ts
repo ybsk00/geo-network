@@ -608,6 +608,48 @@ export const NETWORK_SITES: SiteConfig[] = [
     categories: ["임플란트", "교정", "심미 보철", "예방 치과"],
     footer: "© 투스리뷰 | 치과 시술 전문 리뷰 매거진",
   },
+
+  // ===== 신규 대량 발행 과금용 사이트 (2026-06-04, billing_only 전용) =====
+  {
+    id: "health-journal",
+    domain: "health-journal.geo-networks.com",
+    name: "헬스저널",
+    tagline: "일상 건강을 위한 정보",
+    description: "면역·수면·스트레스·영양 등 일상 건강 관리 정보를 차분히 정리하는 건강 정보 매거진",
+    tone: "차분하고 읽기 쉬운 ~합니다 체",
+    language: "ko",
+    theme: {
+      primaryColor: "#0d9488",
+      bgColor: "#f0fdfa",
+      textColor: "#134e4a",
+      accentColor: "#14b8a6",
+      fontFamily: "Pretendard",
+      headerStyle: "magazine",
+    },
+    categories: ["면역건강", "수면관리", "스트레스", "영양"],
+    footer: "© 헬스저널 | 일상 건강 정보 매거진",
+  },
+
+  // ===== 신규 색인 테스트(Arm B) 사이트 (2026-06-06, 유니크 콘텐츠 전용) =====
+  {
+    id: "health-evidence",
+    domain: "health-evidence.geo-networks.com",
+    name: "헬스에비던스",
+    tagline: "근거 중심 건강 정보",
+    description: "최신 의학 근거와 국제 진료지침을 바탕으로 건강 정보를 정리하는 근거 중심 매거진",
+    tone: "근거 기반, 차분하고 정확한 ~합니다 체",
+    language: "ko",
+    theme: {
+      primaryColor: "#334155",
+      bgColor: "#f8fafc",
+      textColor: "#0f172a",
+      accentColor: "#2563eb",
+      fontFamily: "Pretendard",
+      headerStyle: "corporate",
+    },
+    categories: ["근거 기반 의학", "진료지침", "건강 가이드", "최신 연구"],
+    footer: "© 헬스에비던스 | 근거 중심 건강 정보 매거진",
+  },
 ];
 
 /** GEO 네트워크 루트 도메인 */
@@ -664,8 +706,13 @@ export function isKnownGeoNetworkHost(host: string): boolean {
     const subdomain = h.replace(`.${ROOT_DOMAIN}`, "");
     return SITE_IDS.has(subdomain);
   }
-  // 커스텀 도메인 또는 vercel.app 레거시
-  return NETWORK_SITES.some((s) => s.domain === h);
+  // 커스텀 도메인 또는 vercel.app 레거시 (sites.ts NETWORK_SITES[].domain에 등록된 것)
+  if (NETWORK_SITES.some((s) => s.domain === h)) return true;
+  // 레거시 .vercel.app 프로젝트 (geo-smart-health, geo-health-note 등) — SITE_ID env로 정체성 고정.
+  // CLAUDE.md "레거시 9 vercel.app 백업 + GSC 별도 그룹" 정책에 따라 자기 프로젝트 host는 known 처리.
+  const siteId = process.env.SITE_ID;
+  if (siteId && SITE_IDS.has(siteId)) return true;
+  return false;
 }
 
 /**
@@ -750,6 +797,10 @@ export const SITE_TEMPLATE_MAP: Record<string, TemplateId> = {
   "future-biz": "tech-mono",
   "ai-biz-review": "dark-editorial",
   "growth-lab": "bold-display",
+  // 신규 대량 발행 과금용
+  "health-journal": "modern-minimal",
+  // 신규 색인 테스트(Arm B)
+  "health-evidence": "clinical-docs",
 };
 
 /** site.id → TemplateId. 매핑 없으면 clinical-docs (안전 기본값). */
