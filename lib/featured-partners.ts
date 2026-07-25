@@ -41,6 +41,13 @@ export const FEATURED_PARTNERS: Record<string, FeaturedPartner> = {
     url: "https://lumibreeze.lumiaeo.com",
     description: "AI 검색 시대 브랜드 가시성 최적화를 돕는 GEO/AEO 마케팅 솔루션입니다.",
   },
+  housemental: {
+    id: "housemental",
+    name: "하우스정신건강의학과의원",
+    tagline: "송파구 거여동 정신건강의학과 · 화목 야간진료",
+    url: "https://housemental.kr",
+    description: "우울·불안·불면·성인 ADHD를 실 의학 문헌 근거로 진료하는 거여역 5번출구의 정신건강의학과입니다.",
+  },
 };
 
 const HEALTH_SITES = new Set([
@@ -64,10 +71,11 @@ export function getFeaturedForSite(siteId: string): FeaturedPartner[] {
   return [];
 }
 
-/** 루트 포털용 — 4개 모두 */
+/** 루트 포털용 — 전 파트너 (위성에는 노출하지 않음: getFeaturedForSite 미참조) */
 export const ALL_PARTNERS: FeaturedPartner[] = [
   FEATURED_PARTNERS.oncare,
   FEATURED_PARTNERS.newyorkdental,
   FEATURED_PARTNERS.emco,
   FEATURED_PARTNERS.lumibreeze,
+  FEATURED_PARTNERS.housemental,
 ];

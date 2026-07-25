@@ -45,6 +45,7 @@ const NAVER_VERIFICATION: Record<string, string> = {
   "oral-guide.geo-networks.com": "c84eca6ae9970355514b72402b7672e77e9ccac1",
   "dentist-pick.geo-networks.com": "9729c020c02056bc40128397901c424d09eb2156",
   "tooth-review.geo-networks.com": "4dc07615eff286d07fa15f3e86f2437082c6c417",
+  "health-evidence.geo-networks.com": "38484d3bcf30337b9d798e95bac1986ec415522c",
 };
 
 const PORTAL_FALLBACK: SiteConfig = {
