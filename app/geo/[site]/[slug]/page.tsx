@@ -36,7 +36,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     const supabase = getSupabase();
     const { data: post } = await supabase
       .from("network_posts")
-      .select("title, excerpt, meta_description, category, published_at, billing_only")
+      .select("title, excerpt, meta_description, category, published_at, billing_only, sunset_at")
       .eq("site_id", site.id)
       .eq("slug", slug)
       .eq("status", "published")
@@ -51,7 +51,12 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
       title: post.title,
       description,
       // 대량 발행 과금용(billing_only)은 noindex — 발행은 되지만 색인 격리
-      ...(post.billing_only ? { robots: { index: false, follow: true } } : {}),
+      // 계약 해지 브랜드의 글은 sunset_at 이 찍힌 순서대로 색인에서 빠진다(글은 남는다)
+      ...(post.sunset_at
+        ? { robots: { index: false, follow: false } }
+        : post.billing_only
+          ? { robots: { index: false, follow: true } }
+          : {}),
       alternates: { canonical: pageUrl },
       openGraph: {
         title: post.title,
