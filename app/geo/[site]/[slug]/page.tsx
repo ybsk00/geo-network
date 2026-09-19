@@ -222,6 +222,8 @@ export default async function PostPage({ params }: PageProps) {
       .eq("site_id", site.id)
       .eq("status", "published")
       .eq("billing_only", false) // 대량 발행 과금용 격리: 관련글 제외
+      // 소멸 중인 해지 브랜드 글로는 관련글을 잇지 않는다.
+      .is("sunset_at", null)
       .neq("slug", slug)
       .limit(4);
     const relatedPosts = (relatedRaw ?? []).map((r) => ({
@@ -350,6 +352,8 @@ async function RelatedPosts({
     .eq("site_id", siteId)
     .eq("status", "published")
     .eq("billing_only", false) // 대량 발행 과금용 격리: 관련글 제외
+    // 소멸 중인 해지 브랜드 글로는 관련글을 잇지 않는다.
+    .is("sunset_at", null)
     .neq("slug", currentSlug)
     .limit(4);
 

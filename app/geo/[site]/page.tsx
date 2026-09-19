@@ -103,6 +103,9 @@ export default async function SiteHomePage({
       .eq("site_id", site.id)
       .eq("status", "published")
       .eq("billing_only", false) // 대량 발행 과금용 격리: 리스팅(내부 링크) 제외
+      // 계약 해지 브랜드의 소멸 글은 허브·피드에서 뺀다 — 죽어 가는 자산으로 내부 링크를
+      // 계속 흘리면 네트워크 전체의 신뢰도가 깎인다(sitemap 에는 남긴다: noindex 를 읽혀야 하므로).
+      .is("sunset_at", null)
       .order("published_at", { ascending: false })
       .limit(20);
     postList = posts ?? [];
